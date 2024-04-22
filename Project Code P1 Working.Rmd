@@ -1,0 +1,419 @@
+---
+title: "DPA Project P1 Code"
+output: word_document
+date: "2024-04-20"
+---
+
+```{r}
+
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(GGally)
+library(corrplot)
+library(wordcloud)
+library(treemap)
+library(viridisLite)
+library(countrycode)
+library(rworldmap)
+library(gridExtra)
+```
+
+```{r}
+getwd() 
+```
+
+```{r}
+#read data
+top_by_year <- read.csv("top10s.csv", header = T, fileEncoding='iso-8859-1')
+```
+
+
+```{r}
+#top_by_year
+dim(top_by_year)
+names(top_by_year)
+sum(is.na(top_by_year))
+```
+
+
+```{r}
+summary(top_by_year)
+```
+
+
+```{r}
+sum(duplicated(top_by_year)==TRUE)
+top_by_year <- top_by_year[,-1]
+top_by_year$year <- as.factor(top_by_year$year)
+glimpse(top_by_year)
+```
+
+```{r}
+summary(top_by_year)
+```
+
+
+```{r}
+p1 <- ggplot(top_by_year, aes(x=bpm, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p1)
+```
+
+
+```{r}
+p2 <- ggplot(top_by_year, aes(x=nrgy, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p2)
+```
+
+
+```{r}
+p3 <- ggplot(top_by_year, aes(x=dnce, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p3)
+```
+
+
+```{r}
+p4 <- ggplot(top_by_year, aes(x=dB, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p4)
+```
+
+
+```{r}
+p5 <- ggplot(top_by_year, aes(x=live, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p5)
+```
+
+
+```{r}
+p6 <- ggplot(top_by_year, aes(x=val, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p6)
+```
+
+
+```{r}
+p7 <- ggplot(top_by_year, aes(x=dur, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p7)
+```
+
+
+```{r}
+p8 <- ggplot(top_by_year, aes(x=acous, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p8)
+```
+
+
+```{r}
+p9 <- ggplot(top_by_year, aes(x=spch, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p9)
+```
+
+
+```{r}
+p10 <- ggplot(top_by_year, aes(x=pop, fill=factor(year))) +
+    geom_histogram(bins=10, position="identity", alpha=0.5)
+print(p10)
+```
+
+
+```{r}
+ggpairs(top_by_year, columns = c("bpm", "nrgy", "dnce", "dB", "live", "val", "dur", "acous", "spch", "pop"))
+
+```
+
+
+
+```{r}
+top_artists <- top_by_year %>%
+  group_by(artist) %>%
+  summarise(n_appearance = n(), .groups = 'drop') %>%
+  filter(n_appearance > 1) %>%
+  arrange(desc(n_appearance)) %>%
+  slice_max(order_by = n_appearance, n = 20)
+
+# Adjusting factor levels 
+top_artists$artist <- factor(top_artists$artist, levels = top_artists$artist)
+
+ggplot(top_artists, aes(x = artist, y = n_appearance, fill = artist)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "Artist", y = "Number of Appearances", title = "Top 20 Artists by Frequency in Top Songs") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title = element_text(size = 14)) +
+  geom_text(aes(label = n_appearance), vjust = -0.5, color = 'black', size = 3) +
+  coord_flip() +
+  scale_fill_viridis_d()
+
+```
+
+
+
+```{r}
+# number of distinct years each artist appears in the dataset
+top_artists <- top_by_year %>%
+  group_by(artist) %>%
+  summarise(year_count = n_distinct(year), .groups = 'drop') %>%
+  filter(year_count > 1) %>%
+  arrange(desc(year_count)) %>%
+  slice_max(order_by = year_count, n = 20)  
+
+# Adjusting factor levels for the plot
+top_artists$artist <- factor(top_artists$artist, levels = rev(top_artists$artist))
+
+ggplot(top_artists, aes(x = artist, y = year_count, fill = artist)) +
+  geom_col(show.legend = FALSE) +  
+  labs(x = "Artist", y = "Distinct Years Appeared", title = "Top 20 Artists by Distinct Year Appearances") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title = element_text(size = 14)) +
+  geom_text(aes(label = year_count), vjust = -0.3, color = 'black', size = 3) +
+  coord_flip() +
+  scale_fill_viridis_d() 
+
+
+```
+
+
+
+
+```{r}
+# average popularity for each artist and select the top 20
+popular_artists <- top_by_year %>%
+  group_by(artist) %>%
+  summarise(popularity = round(mean(pop), digits = 1), .groups = 'drop') %>%
+  arrange(desc(popularity)) %>%
+  slice_max(order_by = popularity, n = 20)
+
+# Adjusting factor levels for the plot
+popular_artists$artist <- factor(popular_artists$artist, 
+                                  levels = rev(popular_artists$artist))
+
+ggplot(popular_artists, aes(x = artist, y = popularity, fill = artist)) +
+  geom_col(show.legend = FALSE) +  
+  labs(x = "Artists", y = "Average Popularity", title = "Top 20 Artists by Average Popularity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title = element_text(size = 14), 
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5)) +
+  geom_text(aes(label = popularity), vjust = -0.3, color = 'black', size = 3) +
+  coord_flip() +
+  scale_fill_viridis_d()
+```
+
+
+
+
+```{r}
+# Subset the data for the specified artists
+top_artists_bpm <- top_by_year %>% 
+  filter(artist %in% c('Maroon 5', 'Katy Perry', 'Rihanna', 'Justin Bieber', 
+                       'OneRepublic', 'Lady Gaga', 'David Guetta', 'Calvin Harris'))
+
+# BPM of songs by these artists
+ggplot(top_artists_bpm, aes(x = artist, y = bpm, fill = artist)) + 
+  geom_boxplot(width = 0.5) + 
+  labs(x = "Artists", y = "BPM of Songs", title = "Comparison of Song BPM Across Popular Artists") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 16, hjust = 0.5, face = "bold"),
+        axis.title = element_text(size = 14)) +
+  geom_hline(aes(yintercept = mean(top_by_year$bpm), color = "red"), linetype = "dashed", size = 1) +
+  scale_fill_viridis_d() + # Consistent with previous modifications
+  guides(color = guide_legend(title = "Overall BPM Average")) +
+  coord_flip()
+```
+
+
+```{r}
+# the genre distribution for these artists
+top_artists_genres <- table(factor(top_artists_bpm$top.genre))
+
+# the genre distribution table
+print(top_artists_genres)
+```
+
+
+
+
+```{r}
+artist_appearances <- top_by_year %>%
+  filter(artist %in% c('Maroon 5', 'Katy Perry', 'Rihanna', 'Justin Bieber', 
+                       'OneRepublic', 'Lady Gaga', 'David Guetta', 'Calvin Harris')) %>%
+  group_by(year, artist) %>%
+  summarise(n_appearance = n(), .groups = 'drop') 
+
+#the appearances of each artist by year
+ggplot(artist_appearances, aes(x = factor(year), y = artist, color = artist, size = n_appearance)) +
+  geom_point(alpha = 0.6) + 
+  labs(x = 'Year', y = 'Artist', title = 'Artist Appearances by Year') +
+  theme_minimal() + 
+  theme(axis.title = element_text(size = 14), 
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        legend.title = element_text(size = 12),
+        legend.position = "bottom") +  
+  scale_size(range = c(3, 12))  
+```
+
+
+
+```{r}
+# the number of appearances for each song and artist
+top_songs <- top_by_year %>%
+  group_by(title, artist) %>%
+  summarise(n_appearance = n(), .groups = 'drop') %>%
+  filter(n_appearance > 1) %>%
+  arrange(desc(n_appearance))
+
+# Adjusting factor levels for the plot based on the number of appearances
+top_songs$title <- factor(top_songs$title, levels = rev(top_songs$title[order(top_songs$n_appearance)]))
+
+# visualize the frequency of song appearances
+ggplot(top_songs, aes(x = title, y = n_appearance, fill = artist)) + 
+  geom_col() +  
+  labs(x = "Song Titles", y = "Number of Appearances", title = "Frequency of Song Appearances by Title") +
+  theme_minimal() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title = element_text(size = 14),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.position = "bottom"  
+  ) +
+  geom_text(aes(label = artist), vjust = 0.5, color = 'black', size = 3, position = position_dodge(width = 0.9)) +
+  coord_flip()
+```
+
+
+
+
+```{r}
+# top_by_year to include only titles that appear in top_songs
+times2_songs <- top_by_year %>%
+  filter(title %in% top_songs$title) %>%
+  arrange(title) %>%
+  distinct(title, .keep_all = TRUE)
+
+# genre distribution for these songs
+genre_distribution <- table(factor(times2_songs$top.genre))
+print(genre_distribution)
+```
+
+
+```{r}
+# visualize the acoustic features of these songs
+ggplot(times2_songs, aes(x = title, y = acous, color = top.genre)) + 
+  geom_point(size = 3, alpha = 0.6) +  # Adjust size and transparency for better visibility
+  geom_hline(yintercept = mean(top_by_year$acous), color = "red", linetype = "dashed", size = 1.5) +
+  labs(
+    x = "Song Titles",
+    y = "Acousticness",
+    title = "Acoustic Features of Frequently Appearing Songs",
+    subtitle = "Red dashed line represents the average acousticness across all songs"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    axis.title = element_text(size = 14),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.position = "bottom" 
+  ) +
+  coord_flip()  
+
+```
+
+
+
+```{r}
+ggplot(top_by_year, aes(x = bpm, group = factor(year), colour = factor(year))) +
+  geom_density(alpha = 0.7, size = 1.2) +  # Adjust transparency and line size for better visibility
+  scale_color_viridis_d() +  # Use a perceptually uniform color palette
+  labs(
+    x = "Beats Per Minute (BPM)",
+    y = "Density",
+    title = "Distribution of Song BPM Across Different Years",
+    subtitle = "Each line represents the density of BPM for a given year",
+    colour = "Year"
+  ) +
+  theme_bw() +  # Start with a basic black and white theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 14),
+    legend.title = element_text(size = 12),
+    legend.position = "right",  # Optimal positioning of the legend
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+```
+
+
+```{r}
+# Calculate the correlation matrix for selected columns
+cor_matrix <- cor(top_by_year[,-(1:4)])
+
+# Plot the correlation matrix
+corrplot(cor_matrix, method = "ellipse", type = "upper", tl.srt = 45, tl.col = "black")
+```
+
+
+```{r}
+color_palette <- c("2010" = "#1f77b4", "2011" = "#ff7f0e", "2012" = "#2ca02c", 
+                   "2013" = "#d62728", "2014" = "#9467bd", "2015" = "#8c564b",
+                   "2016" = "#e377c2", "2017" = "#7f7f7f", "2018" = "#bcbd22",
+                   "2019" = "#17becf")
+
+ggplot(top_by_year, aes(x = bpm, group = factor(year), colour = factor(year))) +
+  geom_density(fill = NA, size = 1.5) +  # Emphasize the density line without fill
+  scale_colour_manual(values = color_palette) +  # Apply the custom color palette
+  labs(
+    x = "Beats Per Minute (BPM)",
+    y = "Density",
+    title = "Distribution of Song BPM Over Years",
+    colour = "Year"
+  ) +
+  theme_light(base_size = 14) +  # Use a light theme with readable base font size
+  theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    plot.subtitle = element_text(size = 14),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.position = "top",  
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 12)
+  ) +
+  guides(colour = guide_legend(override.aes = list(size = 5)))  
+
+
+```
+
+
+```{r}
+# frequency of each genre
+genre_frequency <- top_by_year %>%
+  group_by(top.genre) %>%
+  summarise(frequency = n(), .groups = 'drop') %>%
+  arrange(desc(frequency))
+
+# visualize the frequency of songs by genre
+ggplot(genre_frequency, aes(x = reorder(top.genre, -frequency), y = frequency, fill = top.genre)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  
+  labs(
+    x = "Genre",
+    y = "Frequency",
+    title = "Frequency of Songs by Genre",
+    subtitle = "Sorted by frequency"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.title = element_text(size = 14),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 14)
+  ) +
+  coord_flip()
+
+```

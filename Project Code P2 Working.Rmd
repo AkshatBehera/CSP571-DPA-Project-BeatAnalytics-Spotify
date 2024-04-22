@@ -1,0 +1,562 @@
+---
+title: "DPA Project P2 Code"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)  
+library(caret)      
+library(ggplot2)    
+library(lubridate)  
+library(caTools)
+library(e1071)      
+options(warn = -1)  
+
+```
+
+```{r}
+data <- read_csv("SpotifyFeatures.csv")
+head(data)
+summary(data)
+names(data)
+
+```
+
+```{r}
+sum(is.na(data))
+# Assuming no NaN values found, we proceed without filling missing data.
+```
+```{r}
+library(dplyr)
+colnames(data)
+
+data %>%
+  dplyr::arrange(desc(popularity)) %>%
+  dplyr::select(track_name, popularity) %>%
+  dplyr::slice_head(n = 5) -> top_songs
+
+# top 5 songs
+print(top_songs)
+```
+```{r}
+library(ggplot2)
+
+ggplot(top_songs, aes(x = reorder(track_name, popularity), y = popularity, fill = track_name)) +
+  geom_col(show.legend = FALSE) +
+  labs(title = "Top 5 Most Popular Songs", x = "Song Name", y = "Popularity Score") +
+  theme_minimal() +
+  coord_flip() 
+```
+
+```{r}
+# Popularity Distribution
+ggplot(data, aes(x = popularity)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  ggtitle("Popularity Distribution")
+```
+
+```{r}
+# Popularity Density Plot
+library(ggplot2)
+
+# Assuming 'data' is your DataFrame and 'popularity' is a field in it
+ggplot(data, aes(x = popularity)) +
+  geom_density(fill = "steelblue", alpha = 0.5) +
+  labs(title = "Density of Popularity Ratings",
+       x = "Popularity Score",
+       y = "Density") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title
+```
+```{r}
+# Correlation matrix plot
+library(corrplot)
+corr_data <- cor(data %>% select_if(is.numeric))
+corrplot(corr_data, method = "circle")
+```
+```{r}
+# Enhanced Correlation Matrix Visualization
+library(corrplot)
+library(dplyr)
+
+# Calculate correlation matrix from numeric columns of the dataset
+corr_data <- cor(data %>% select_if(is.numeric))
+
+# Use 'number' method to display the correlation coefficients, with a color scale
+corrplot(corr_data, method = "number", type = "upper", 
+         tl.col = "black", # Color of text labels
+         tl.srt = 45,      # Rotation of text labels
+         col = colorRampPalette(c("darkred", "white", "darkblue"))(200)) # Custom color scale
+```
+
+```{r}
+# Popularity Based on Time Signature
+ggplot(data, aes(x = time_signature, y = popularity)) +
+  geom_bar(stat = "summary", fun = "mean", fill = "steelblue") +
+  ggtitle("Popularity Based on Time Signature")
+```
+```{r}
+# Popularity Distribution Across Time Signatures
+library(ggplot2)
+
+# Create a boxplot to visualize the spread and central tendency of popularity by time signature
+ggplot(data, aes(x = as.factor(time_signature), y = popularity)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue") +
+  labs(title = "Distribution of Popularity by Time Signature",
+       x = "Time Signature",
+       y = "Average Popularity") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title for better presentation
+```
+```{r}
+# Popularity Based on Key
+ggplot(data, aes(x = key, y = popularity)) +
+  geom_bar(stat = "summary", fun = "mean", fill = "steelblue") +
+  ggtitle("Popularity Based on Key")
+```
+```{r}
+# Average Popularity by Musical Key
+library(ggplot2)
+
+# Create a column plot to display the mean popularity for each musical key
+ggplot(data, aes(x = as.factor(key), y = popularity, group = key)) +
+  stat_summary(fun = mean, geom = "col", fill = "cornflowerblue", color = "navy") +
+  labs(title = "Average Popularity Across Musical Keys",
+       x = "Musical Key",
+       y = "Mean Popularity") +
+  theme_light() +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title for aesthetics
+```
+
+```{r}
+# Popularity Based on Mode
+ggplot(data, aes(x = mode, y = popularity)) +
+  geom_bar(stat = "summary", fun = "mean", fill = "steelblue") +
+  ggtitle("Popularity Based on Mode")
+```
+```{r}
+# Popularity Trends by Musical Mode
+library(ggplot2)
+
+# Plotting popularity as a jitter plot to show dispersion and central tendency by mode
+ggplot(data, aes(x = as.factor(mode), y = popularity)) +
+  geom_jitter(alpha = 0.6, color = "dodgerblue") +  # Jitter plot with semi-transparent points
+  stat_summary(fun = mean, geom = "crossbar", color = "red", width = 0.7) +  # Mean line on top
+  labs(title = "Popularity Trends Across Musical Modes",
+       x = "Musical Mode",
+       y = "Popularity") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title for better aesthetics
+```
+
+```{r}
+# Combined Mode and Key
+ggplot(data, aes(x = mode, y = popularity, fill = factor(key))) +
+  geom_bar(stat = "summary", fun = "mean") +
+  ggtitle("Popularity Based on Mode and Key")
+```
+```{r}
+# Popularity Analysis by Mode and Key
+library(ggplot2)
+
+# Creating a faceted grid plot to show the mean popularity by key within each mode
+ggplot(data, aes(x = factor(key), y = popularity)) +
+  geom_col(aes(fill = factor(key)), position = "dodge") +  # Use geom_col to display columns, with fill based on key
+  facet_wrap(~mode, scales = "free_x") +  # Create separate panels for each mode
+  labs(title = "Popularity Distribution by Mode and Musical Key",
+       x = "Musical Key",
+       y = "Average Popularity") +
+  scale_fill_brewer(palette = "Set3") +  # A color palette that's visually appealing and distinct
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Center the title for better aesthetics
+```
+
+```{r}
+# Joint plots for acousticness vs. popularity
+ggplot(data, aes(x = acousticness, y = popularity)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal()
+```
+```{r}
+# Trend Analysis: Acousticness vs. Popularity
+library(ggplot2)
+
+# Creating a scatter plot with a trend line to analyze the relationship between acousticness and popularity
+ggplot(data, aes(x = acousticness, y = popularity)) +
+  geom_point(alpha = 0.3, color = "darkgreen") +  # Adjusting point transparency and color
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Adding a linear regression line without confidence interval
+  labs(title = "Influence of Acousticness on Track Popularity",
+       x = "Acousticness Level",
+       y = "Popularity Score") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))  # Centering the title for better aesthetics
+```
+
+```{r}
+# Density plots for acousticness
+ggplot(subset(data, popularity > 50), aes(x = acousticness)) +
+  geom_density(fill = "red") +
+  ggtitle("Acousticness for Songs with More than 50 Popularity")
+```
+```{r}
+# Acousticness Distribution for Popular Songs
+library(ggplot2)
+
+# Filtering data for songs with popularity over 50 and plotting their acousticness distribution
+ggplot(subset(data, popularity > 50), aes(x = acousticness)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.05, fill = "blue", color = "black", alpha = 0.6) +  # Histogram with density scale
+  geom_density(color = "yellow", size = 1.5) +  # Overlaid density plot in a contrasting color
+  labs(title = "Acousticness Distribution for Highly Popular Songs",
+       x = "Acousticness Level",
+       y = "Density") +
+  theme_classic() +  # Using a classic theme for a clean look
+  theme(plot.title = element_text(hjust = 0.5))  # Centering the title for better aesthetics
+```
+```{r}
+ggplot(subset(data, popularity < 50), aes(x = acousticness)) +
+  geom_density(fill = "blue") +
+  ggtitle("Acousticness for Songs with Less than 50 Popularity")
+```
+```{r}
+# Mirrored Density Plot for Acousticness in Less Popular Songs
+library(ggplot2)
+
+# Filtering data for songs with popularity under 50
+sub_data <- subset(data, popularity < 50)
+
+# Plotting mirrored density plots for acousticness
+ggplot(sub_data, aes(x = acousticness, fill = factor(popularity < 50))) +
+  geom_density(alpha = 0.5, fill = "lightblue") +
+  geom_density(data = sub_data, aes(x = acousticness, y = -..density..), fill = "lightblue", alpha = 0.5) +
+  labs(title = "Symmetrical Density of Acousticness for Songs with Lower Popularity",
+       x = "Acousticness Level",
+       y = "Density (Positive & Negative)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5), 
+        legend.position = "none")  # Hide the legend and center the title for better aesthetics
+```
+
+```{r}
+# Convert key to numeric
+data$key <- as.numeric(factor(data$key))
+
+# Convert mode to binary
+data$mode <- ifelse(data$mode == "Major", 1, 0)
+
+# Convert time signature to numeric
+data$time_signature <- as.numeric(factor(data$time_signature))
+
+# Binarize popularity
+data$popularity <- ifelse(data$popularity >= 57, 1, 0)
+```
+
+```{r}
+library(dplyr)
+library(caret)
+
+data <- data %>%
+  dplyr::select(acousticness, danceability, energy, key, mode, speechiness, tempo, popularity)
+
+# For reproducibility
+set.seed(123)
+
+# training and testing datasets
+training_rows <- caret::createDataPartition(data$popularity, p = 0.8, list = TRUE)
+train_data <- data[training_rows[[1]], ]
+test_data <- data[-training_rows[[1]], ]
+```
+
+```{r}
+# logistic regression model
+fit <- glm(popularity ~ ., family = binomial(link = 'logit'), data = train_data)
+print(summary(fit))
+```
+
+```{r}
+# Make predictions on the test dataset
+predictions <- predict(fit, test_data, type = "response")
+predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+```
+
+```{r}
+# Create a confusion matrix to evaluate the model
+conf_matrix <- table(Predicted = predicted_classes, Actual = test_data$popularity)
+print(conf_matrix)
+```
+```{r}
+ss_res <- sum((predictions - test_data$popularity)^2)
+ss_tot <- sum((mean(train_data$popularity) - test_data$popularity)^2)
+r_squared <- 1 - ss_res/ss_tot
+print(paste("R-squared:", r_squared))
+```
+
+
+```{r}
+# accuracy
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+print(paste("Accuracy: ", accuracy))
+```
+```{r}
+mae <- mean(abs(predictions - test_data$popularity))
+print(paste("Mean Absolute Error (MAE): ", mae))
+```
+```{r}
+rmse <- sqrt(mean((predictions - test_data$popularity)^2))
+print(paste("Root Mean Squared Error (RMSE): ", rmse))
+```
+
+```{r}
+library(randomForest)
+library(e1071)
+library(class)  # For KNN
+library(rpart)
+```
+
+```{r}
+# Decision Tree Model
+fit_dt <- rpart(popularity ~ ., data = train_data, method = "class")
+print(summary(fit_dt))
+```
+```{r}
+# Predictions
+predictions_dt <- predict(fit_dt, test_data, type = "class")
+prob_dt <- predict(fit_dt, test_data, type = "prob")[,2] 
+
+# Confusion matrix and accuracy
+conf_matrix_dt <- table(Predicted = predictions_dt, Actual = test_data$popularity)
+auc_dt <- roc(response = test_data$popularity, predictor = prob_dt)$auc
+accuracy_dt <- sum(diag(conf_matrix_dt)) / sum(conf_matrix_dt)
+```
+
+```{r}
+#results
+print("Decision Tree Model")
+print(conf_matrix_dt)
+print(paste("Accuracy: ", accuracy_dt))
+```
+```{r}
+cat(sprintf("AUC: %.2f\n", auc_dt))
+cat("\n")
+```
+```{r}
+mse_dt <- mean((prob_dt - as.numeric(test_data$popularity))^2)
+rmse_dt <- sqrt(mse_dt)
+r_squared_dt <- 1 - sum((prob_dt - as.numeric(test_data$popularity))^2) / sum((mean(train_data$popularity) - as.numeric(test_data$popularity))^2)
+
+cat(sprintf("MSE: %.4f\n", mse_dt))
+cat(sprintf("RMSE: %.4f\n", rmse_dt))
+cat("\n")
+```
+
+```{r}
+# Linear Regression Model
+fit_lm <- train(popularity ~ ., data = train_data, method = "lm")
+print(summary(fit_lm))
+```
+```{r}
+# Predictions
+predictions_lm <- predict(fit_lm, test_data)
+
+# Convert predictions to binary classes based on a threshold, e.g., 0.5
+predicted_classes_lm <- ifelse(predictions_lm > 0.5, 1, 0)
+
+```
+
+```{r}
+# Confusion matrix and accuracy
+conf_matrix_lm <- table(Predicted = predicted_classes_lm, Actual = test_data$popularity)
+accuracy_lm <- sum(diag(conf_matrix_lm)) / sum(conf_matrix_lm)
+```
+
+```{r}
+# Print results
+print("Linear Regression Model (as Classifier)")
+print(conf_matrix_lm)
+print(paste("Accuracy: ", accuracy_lm))
+```
+```{r}
+# Naive Bayes Model
+library(e1071)
+fit_nb <- naiveBayes(popularity ~ ., data = train_data)
+print(summary(fit_nb))
+```
+```{r}
+# Predictions
+predictions_nb <- predict(fit_nb, test_data)
+prob_nb <- predict(fit_nb, test_data, type = "raw")[,2]
+predicted_classes_nb <- ifelse(predictions_nb > 0.5, 1, 0)
+```
+
+```{r}
+# Confusion matrix and accuracy
+conf_matrix_nb <- table(Predicted = predictions_nb, Actual = test_data$popularity)
+auc_nb <- roc(response = test_data$popularity, predictor = prob_nb)$auc
+accuracy_nb <- sum(diag(conf_matrix_nb)) / sum(conf_matrix_nb)
+```
+
+```{r}
+# results
+print("Naive Bayes Model")
+print(conf_matrix_nb)
+print(paste("Accuracy: ", accuracy_nb))
+```
+```{r}
+cat(sprintf("AUC: %.2f\n", auc_dt))
+```
+```{r}
+mse_nb <- mean((prob_nb - as.numeric(test_data$popularity))^2)
+rmse_nb <- sqrt(mse_nb)
+r_squared_nb <- 1 - sum((prob_nb - as.numeric(test_data$popularity))^2) / sum((mean(train_data$popularity) - as.numeric(test_data$popularity))^2)
+
+cat(sprintf("MSE: %.4f\n", mse_nb))
+cat(sprintf("RMSE: %.4f\n", rmse_nb))
+cat("\n")
+```
+
+```{r}
+# Predict probabilities for test data
+probabilities_test <- predict(fit_nb, test_data, type = "raw")
+
+prob_df <- data.frame(probabilities_test)
+
+# Adding actual class to the dataframe
+prob_df$Actual = test_data$popularity
+
+# Melt the dataframe for use with ggplot2
+library(reshape2)
+prob_melted <- melt(prob_df, id.vars = "Actual")
+
+# Plotting
+ggplot(prob_melted, aes(x = value, fill = as.factor(Actual), colour = as.factor(Actual))) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "Probability Density of Each Class",
+       x = "Probability",
+       y = "Density",
+       fill = "Actual Class",
+       colour = "Actual Class")
+```
+
+```{r}
+library(MASS)
+
+#Trying Linear Discriminant Analysis Model
+fit_lda <- lda(popularity ~ ., data = train_data)
+print(summary(fit_lda))
+```
+```{r}
+# Predictions
+predictions_lda <- predict(fit_lda, test_data)$class
+
+predicted_classes_lda <- ifelse(predictions_lda > 0.5, 1, 0)
+```
+
+```{r}
+# Confusion matrix and accuracy
+conf_matrix_lda <- table(Predicted = predictions_lda, Actual = test_data$popularity)
+accuracy_lda <- sum(diag(conf_matrix_lda)) / sum(conf_matrix_lda)
+```
+
+```{r}
+#results
+print("Linear Discriminant Analysis Model")
+print(conf_matrix_lda)
+print(paste("Accuracy: ", accuracy_lda))
+```
+```{r}
+library(pROC)  
+calculate_metrics <- function(predictions, labels, probabilities = NULL) {
+  cm <- confusionMatrix(table(Predicted = predictions, Actual = labels))
+  auc <- if (!is.null(probabilities)) { 
+    roc_auc <- roc(response = labels, predictor = probabilities)
+    auc(roc_auc)
+  } else {
+    NA
+  }
+  list(accuracy = cm$overall['Accuracy'], auc = auc, f1 = cm$byClass['F1'])
+}
+```
+
+```{r}
+metrics_logreg <- calculate_metrics(predicted_classes, test_data$popularity, predictions)
+```
+```{r}
+print("Logistic Regression Model")
+print(metrics_logreg)
+
+```
+```{r}
+metrics_dt <- calculate_metrics(predictions_dt, test_data$popularity)
+```
+
+```{r}
+print("Decision Tree Model")
+print(metrics_dt)
+```
+```{r}
+metrics_nb <- calculate_metrics(predictions_nb, test_data$popularity)
+```
+
+```{r}
+print("Naive Bayes Model")
+print(metrics_nb)
+```
+## KNN
+```{r}
+# Scale the predictor variables (excluding the target variable 'popularity')
+train_data_scaled <- scale(train_data[, -ncol(train_data)])
+test_data_scaled <- scale(test_data[, -ncol(test_data)], center = attr(train_data_scaled, "scaled:center"), scale = attr(train_data_scaled, "scaled:scale"))
+
+# Converted scaled data back to data frames and add the popularity column
+train_data_scaled <- as.data.frame(train_data_scaled)
+train_data_scaled$popularity <- train_data$popularity
+
+test_data_scaled <- as.data.frame(test_data_scaled)
+test_data_scaled$popularity <- test_data$popularity
+
+# Choose the number of neighbors
+k <- 5
+
+# KNN model
+knn_fit <- knn(train = train_data_scaled[, -ncol(train_data_scaled)], 
+               test = test_data_scaled[, -ncol(test_data_scaled)], 
+               cl = train_data_scaled$popularity, k = k)
+
+# Evaluate the KNN model
+conf_matrix_knn <- table(Predicted = knn_fit, Actual = test_data_scaled$popularity)
+print("KNN Model Confusion Matrix")
+print(conf_matrix_knn)
+
+#accuracy
+accuracy_knn <- sum(diag(conf_matrix_knn)) / sum(conf_matrix_knn)
+print(paste("Accuracy: ", accuracy_knn))
+```
+```{r}
+conf_matrix <- confusionMatrix(as.factor(knn_fit), as.factor(test_data_scaled$popularity))
+print("Confusion Matrix:")
+print(conf_matrix$table)
+print(paste("Accuracy: ", conf_matrix$overall['Accuracy']))
+print(paste("Precision: ", conf_matrix$byClass['Precision']))
+print(paste("Recall: ", conf_matrix$byClass['Recall']))
+print(paste("F1 Score: ", conf_matrix$byClass['F1']))
+```
+```{r}
+library(pROC)
+roc_response <- roc(test_data_scaled$popularity, as.numeric(knn_fit))
+auc_value <- auc(roc_response)
+print(paste("AUC: ", auc_value))
+```
+
+
+```{r}
+# Plotting actual vs predicted
+test_data_scaled$Predicted <- as.numeric(knn_fit)
+ggplot(test_data_scaled, aes(x = as.factor(popularity), y = as.factor(Predicted))) +
+  geom_jitter(width = 0.1, height = 0.1, size = 2, aes(color = as.factor(popularity))) +
+  labs(x = "Actual Popularity", y = "Predicted Popularity", title = "Actual vs. Predicted Popularity") +
+  scale_color_manual(values = c("red", "blue"), labels = c("Not Popular", "Popular")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+
+# Project P2 - Code
