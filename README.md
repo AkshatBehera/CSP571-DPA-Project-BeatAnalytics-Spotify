@@ -3,7 +3,7 @@
 
 Project Group Members:
 
-Akshat Behera - A20516439
-Aditya Nayak - A20528097
-Kasargod Kailash Chandra Shenoy - A20526053
-Veerendra Gopichand Karuturi - A20529571
+- Akshat Behera - A20516439
+- Aditya Nayak - A20528097
+- Kasargod Kailash Chandra Shenoy - A20526053
+- Veerendra Gopichand Karuturi - A20529571
