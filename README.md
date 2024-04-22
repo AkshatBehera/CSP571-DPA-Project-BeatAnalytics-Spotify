@@ -1,4 +1,4 @@
-## CSP 571 - Data Preparation and Analysis
+## CSP 571 - Data Preparation and Analysis - DPA
 ### Beat Analytics : Spotify Data Analysis and Song Popularity Prediction
 
 Project Group Members:
